@@ -127,7 +127,7 @@ function updateEmptyState() {
 function limitTitleLines() {
     const input = document.getElementById('titleInput');
     const lines = input.value.replace(/\r/g, '').split('\n');
-    if (lines.length > 3) input.value = lines.slice(0, 3).join('\n');
+    if (lines.length > 5) input.value = lines.slice(0, 5).join('\n');
 }
 
 function renderColorPickers() {
@@ -300,23 +300,23 @@ function drawGallery(c, x, y, w, h) {
 }
 
 function drawCompact(c, x, y, w, h) {
-    drawPhoto(c, x, y, w * 0.70, h);
-    drawTextBlock(c, x + w * 0.73, y + h * 0.11, w * 0.22, h, 0.78);
+    drawPhoto(c, x, y, w * 0.80, h);
+    drawTextBlock(c, x + w * 0.83, y + h * 0.11, w * 0.14, h, 0.70);
 }
 
 function drawTextBlock(c, x, y, w, h, scale) {
     const font = fontCss[document.getElementById('fontSelect').value] || fontCss.system;
     const titleText = document.getElementById('titleInput').value || 'TRIP';
     c.font = `900 ${Math.max(28, h * 0.115 * scale)}px ${font}`;
-    const titleLineCount = getTitleLines(c, titleText, w, 3).length;
-    const titleSize = Math.max(24, h * 0.115 * scale * (titleLineCount >= 3 ? 0.82 : 1));
-    const titleLineH = titleSize * (titleLineCount >= 3 ? 0.86 : 0.93);
+    const titleLineCount = getTitleLines(c, titleText, w, 5).length;
+    const titleSize = Math.max(16, h * 0.115 * scale * (titleLineCount >= 3 ? 0.62 : 1));
+    const titleLineH = titleSize * (titleLineCount >= 3 ? 0.84 : 0.93);
     const titleBlockH = Math.max(h * 0.28, titleLineH * titleLineCount);
-    const detailShift = titleLineCount >= 3 ? h * 0.075 : (titleLineCount === 2 ? h * 0.025 : 0);
+    const detailShift = titleLineCount >= 3 ? h * 0.045 : (titleLineCount === 2 ? h * 0.025 : 0);
     c.fillStyle = state.text;
     c.textBaseline = 'top';
     c.font = `900 ${titleSize}px ${font}`;
-    drawTitleLines(c, titleText, x, y, w, 3, titleLineH);
+    drawTitleLines(c, titleText, x, y, w, 5, titleLineH);
     c.font = `800 ${Math.max(20, h * 0.067 * scale)}px ${font}`;
     c.fillText(document.getElementById('dateInput').value || '', x, y + Math.max(h * 0.43, titleBlockH + h * 0.08) + detailShift);
     c.font = `800 ${Math.max(14, h * 0.044 * scale)}px ${font}`;
@@ -327,7 +327,7 @@ function drawTextBlock(c, x, y, w, h, scale) {
 }
 
 function getTitleLines(c, text, w, maxLines) {
-    const explicitLines = text.replace(/\r/g, '').split('\n').map(value => value.trim()).filter(Boolean).slice(0, 3);
+    const explicitLines = text.replace(/\r/g, '').split('\n').map(value => value.trim()).filter(Boolean).slice(0, 5);
     const lines = [];
     for (const raw of explicitLines.length ? explicitLines : ['TRIP']) {
         const normalized = raw.replace(/\s+/g, ' ');
