@@ -347,9 +347,17 @@ textarea:focus {
     }
 
     .control-pane {
+        display: flex;
+        flex-direction: column;
         width: 100%;
         height: auto;
         border-left: 0;
         border-top: 1px solid rgba(80,70,60,0.08);
     }
+
+    .layout-section { order: 1; }
+    .color-section { order: 2; }
+    .text-section { order: 3; }
+    .ratio-section { order: 4; }
+    .primary-btn { order: 5; }
 }
