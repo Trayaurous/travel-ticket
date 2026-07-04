@@ -1,4 +1,9 @@
-const recommendedColors = ['#F8D7DA', '#D8E2DC', '#F6E7CB', '#D7E8F6', '#EADCF8'];
+const recommendedColors = {
+    bg: ['#E8DDCC', '#D8E2DC', '#F6E7CB', '#D7E8F6', '#A7535A'],
+    ticket: ['#FFFFFF', '#D8E2DC', '#F6E7CB', '#D7E8F6', '#A7535A'],
+    text: ['#1F1F1F', '#D8E2DC', '#F6E7CB', '#D7E8F6', '#F29400']
+};
+const paletteFallbackColors = ['#A7535A', '#D8CDB8', '#7E93A8', '#B6C3B6', '#4A4A4A'];
 const labels = { bg: '背景颜色', ticket: '票根颜色', text: '字体颜色' };
 const fontCss = {
     system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -140,7 +145,7 @@ function renderColorPickers() {
             </button>
             <div class="color-menu">
                 <div class="color-row-label">推荐颜色</div>
-                <div class="color-row">${recommendedColors.map(color => colorDot(color, target)).join('')}</div>
+                <div class="color-row">${recommendedColors[target].map(color => colorDot(color, target)).join('')}</div>
                 <div class="color-row-label">当前图片</div>
                 <div class="color-row">${state.palette.map(color => colorDot(color, target, true)).join('')}</div>
                 <div class="color-row-label">明度变体</div>
@@ -429,7 +434,7 @@ function extractPalette(img, count = 5) {
         if (picked.length >= count) break;
     }
 
-    return picked.map(color => rgbToHex([color.r, color.g, color.b])).concat(recommendedColors).slice(0, count);
+    return picked.map(color => rgbToHex([color.r, color.g, color.b])).concat(paletteFallbackColors).slice(0, count);
 }
 
 function colorDistance(a, b) {
