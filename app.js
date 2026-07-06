@@ -1,7 +1,7 @@
 const recommendedColors = {
-    bg: ['#E8DDCC', '#D8E2DC', '#F6E7CB', '#D7E8F6', '#A7535A'],
-    ticket: ['#FFFFFF', '#D8E2DC', '#F6E7CB', '#D7E8F6', '#A7535A'],
-    text: ['#1F1F1F', '#D8E2DC', '#F6E7CB', '#D7E8F6', '#F29400']
+    bg: ['#E8DDCC', '#A7AAA3', '#E49c69', '#9FE7E7', '#ffb8a0'],
+    ticket: ['#FFFFFF', '#C9BBA7', '#F2C299', '#289FB7', '#A7535A'],
+    text: ['#1F1F1F', '#567C8D', '#5C3B2E', '#E8F8FF', '#ffddd4']
 };
 const paletteFallbackColors = ['#A7535A', '#D8CDB8', '#7E93A8', '#B6C3B6', '#4A4A4A'];
 const labels = { bg: '背景颜色', ticket: '票根颜色', text: '字体颜色' };
@@ -115,7 +115,7 @@ function resetTicket() {
     state.layout = 'classic';
     state.ratio = '1:1';
     document.getElementById('titleInput').value = 'SAN YA';
-    document.getElementById('line1Input').value = 'NO.772787';
+    document.getElementById('line1Input').value = 'TravelTicket';
     document.getElementById('line2Input').value = 'next station';
     document.getElementById('dateInput').value = '2026 - 06';
     document.getElementById('fontSelect').value = 'system';
@@ -212,26 +212,58 @@ function renderCanvas(targetCanvas, w, h) {
 }
 
 function drawTicket(c, x, y, w, h, layout) {
+    const path = getTicketPath(layout);
     c.save();
     c.shadowColor = 'rgba(70,60,45,0.16)';
     c.shadowBlur = 28;
     c.shadowOffsetY = 18;
-    ticketPath(c, x, y, w, h);
+    path(c, x, y, w, h);
     c.fillStyle = state.ticket;
     c.fill();
     c.restore();
 
     c.save();
-    ticketPath(c, x, y, w, h);
+    path(c, x, y, w, h);
     c.clip();
-    if (layout === 'boarding') drawBoarding(c, x, y, w, h);
-    else if (layout === 'gallery') drawGallery(c, x, y, w, h);
-    else if (layout === 'compact') drawCompact(c, x, y, w, h);
-    else drawClassic(c, x, y, w, h);
+    if (layout === 'boarding') {
+        drawBoarding(c, x, y, w, h);
+    } else if (layout === 'gallery') {
+        drawGallery(c, x, y, w, h);
+    } else if (layout === 'compact') {
+        drawCompact(c, x, y, w, h);
+    } else {
+        drawClassic(c, x, y, w, h);
+    }
     c.restore();
+
+    if (layout === 'gallery') drawGallerySplitNotches(c, x, y, w, h);
 }
 
-function ticketPath(c, x, y, w, h) {
+function getTicketPath(layout) {
+    if (layout === 'boarding') return plainTicketPath;
+    if (layout === 'gallery') return plainTicketPath;
+    return rightNotchTicketPath;
+}
+
+function roundedRectPath(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r);
+    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r);
+    c.quadraticCurveTo(x, y, x + r, y);
+    c.closePath();
+}
+
+function plainTicketPath(c, x, y, w, h) {
+    roundedRectPath(c, x, y, w, h, Math.min(w, h) * 0.07);
+}
+
+function rightNotchTicketPath(c, x, y, w, h) {
     const r = h * 0.07;
     const notch = h * 0.13;
     c.beginPath();
@@ -271,6 +303,31 @@ function drawPhoto(c, x, y, w, h) {
     c.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
+function drawPhotoFramed(c, x, y, w, h, radius = 18, alpha = 0.24, lineRatio = 0.008) {
+    c.save();
+    roundedRectPath(c, x, y, w, h, radius);
+    c.clip();
+    drawPhoto(c, x, y, w, h);
+    c.restore();
+    c.save();
+    c.strokeStyle = state.text;
+    c.globalAlpha = alpha;
+    c.lineWidth = Math.max(1, Math.min(w, h) * lineRatio);
+    roundedRectPath(c, x, y, w, h, radius);
+    c.stroke();
+    c.restore();
+}
+
+function strokeRoundedBox(c, x, y, w, h, radius = 18, alpha = 0.22) {
+    c.save();
+    c.strokeStyle = state.text;
+    c.globalAlpha = alpha;
+    c.lineWidth = Math.max(2, Math.min(w, h) * 0.008);
+    roundedRectPath(c, x, y, w, h, radius);
+    c.stroke();
+    c.restore();
+}
+
 function drawPhotoPlaceholder(c, x, y, w, h) {
     const gradient = c.createLinearGradient(x, y, x + w, y + h);
     gradient.addColorStop(0, '#A9D8D4');
@@ -294,14 +351,35 @@ function drawClassic(c, x, y, w, h) {
 }
 
 function drawBoarding(c, x, y, w, h) {
-    drawPhoto(c, x, y, w * 0.62, h);
-    drawDashedLine(c, x + w * 0.65, y + h * 0.08, x + w * 0.65, y + h * 0.92);
-    drawTextBlock(c, x + w * 0.69, y + h * 0.14, w * 0.24, h, 0.9);
+    const photoW = w * 0.70;
+    const seamX = x + w * 0.725;
+    const textX = x + w * 0.755;
+    const textY = y + h * 0.15;
+    const textW = w * 0.18;
+    drawPhoto(c, x, y, photoW, h);
+
+    drawDashedLine(c, seamX, y + h * 0.08, seamX, y + h * 0.92, 0.54, 3.2, [9, 7]);
+    drawDashedLine(c, textX, y + h * 0.53, textX + textW * 0.90, y + h * 0.53, 0.36, 2, [7, 7]);
+
+    drawTextBlock(c, textX, textY, textW, h, 0.74);
 }
 
 function drawGallery(c, x, y, w, h) {
-    drawPhoto(c, x + w * 0.035, y + h * 0.10, w * 0.54, h * 0.80);
-    drawTextBlock(c, x + w * 0.64, y + h * 0.16, w * 0.27, h, 0.86);
+    const pad = w * 0.035;
+    const gap = w * 0.026;
+    const photoX = x + pad;
+    const photoY = y + h * 0.10;
+    const photoW = w * 0.66;
+    const photoH = h * 0.80;
+    const splitX = photoX + photoW + gap * 0.48;
+    const textX = splitX + gap * 0.92;
+    const textY = y + h * 0.10;
+    const textW = x + w - pad - textX;
+    const textH = h * 0.80;
+    drawPhotoFramed(c, photoX, photoY, photoW, photoH, h * 0.045, 0.075, 0.0010);
+    strokeRoundedBox(c, textX, textY, textW, textH, h * 0.045, 0.18);
+    drawDashedLine(c, splitX, y + h * 0.11, splitX, y + h * 0.89, 0.30, 2.2, [8, 8]);
+    drawTextBlock(c, textX + textW * 0.10, textY + textH * 0.08, textW * 0.80, textH, 0.66);
 }
 
 function drawCompact(c, x, y, w, h) {
@@ -309,7 +387,24 @@ function drawCompact(c, x, y, w, h) {
     drawTextBlock(c, x + w * 0.83, y + h * 0.11, w * 0.14, h, 0.70);
 }
 
-function drawTextBlock(c, x, y, w, h, scale) {
+function drawGallerySplitNotches(c, x, y, w, h) {
+    const pad = w * 0.035;
+    const photoW = w * 0.66;
+    const gap = w * 0.026;
+    const splitX = x + pad + photoW + gap * 0.48;
+    const notch = h * 0.055;
+    c.save();
+    c.fillStyle = state.bg;
+    c.beginPath();
+    c.arc(splitX, y, notch, 0, Math.PI * 2);
+    c.fill();
+    c.beginPath();
+    c.arc(splitX, y + h, notch, 0, Math.PI * 2);
+    c.fill();
+    c.restore();
+}
+
+function drawTextBlock(c, x, y, w, h, scale, options = {}) {
     const font = fontCss[document.getElementById('fontSelect').value] || fontCss.system;
     const titleText = document.getElementById('titleInput').value || 'TRIP';
     c.font = `900 ${Math.max(28, h * 0.115 * scale)}px ${font}`;
@@ -322,6 +417,9 @@ function drawTextBlock(c, x, y, w, h, scale) {
     c.textBaseline = 'top';
     c.font = `900 ${titleSize}px ${font}`;
     drawTitleLines(c, titleText, x, y, w, 5, titleLineH);
+    if (options.separator) {
+        drawDashedLine(c, x, y + Math.max(h * 0.34, titleBlockH + h * 0.045), x + w * 0.82, y + Math.max(h * 0.34, titleBlockH + h * 0.045), 0.34, 2, [7, 7]);
+    }
     c.font = `800 ${Math.max(20, h * 0.067 * scale)}px ${font}`;
     c.fillText(document.getElementById('dateInput').value || '', x, y + Math.max(h * 0.43, titleBlockH + h * 0.08) + detailShift);
     c.font = `800 ${Math.max(14, h * 0.044 * scale)}px ${font}`;
@@ -359,12 +457,13 @@ function drawTitleLines(c, text, x, y, w, maxLines, lineH) {
     lines.forEach((line, index) => c.fillText(line, x, y + index * lineH));
 }
 
-function drawDashedLine(c, x1, y1, x2, y2) {
+function drawDashedLine(c, x1, y1, x2, y2, alpha = 0.22, width = 2, dash = [8, 8]) {
     c.save();
     c.strokeStyle = state.text;
-    c.globalAlpha = 0.22;
-    c.setLineDash([8, 8]);
-    c.lineWidth = 2;
+    c.globalAlpha = alpha;
+    c.setLineDash(dash);
+    c.lineWidth = width;
+    c.lineCap = 'round';
     c.beginPath();
     c.moveTo(x1, y1);
     c.lineTo(x2, y2);
