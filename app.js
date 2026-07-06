@@ -1,7 +1,7 @@
 const recommendedColors = {
     bg: ['#E8DDCC', '#A7AAA3', '#E49c69', '#b7d9d9', '#ffb8a0'],
     ticket: ['#FFFFFF', '#C9BBA7', '#F2C299', '#289FB7', '#A7535A'],
-    text: ['#1F1F1F', '#79a8bd', '#5C3B2E', '#E8F8FF', '#ffddd4']
+    text: ['#1F1F1F', '#336278', '#5C3B2E', '#E8F8FF', '#ffddd4']
 };
 const paletteFallbackColors = ['#A7535A', '#D8CDB8', '#7E93A8', '#B6C3B6', '#4A4A4A'];
 const labels = { bg: '背景颜色', ticket: '票根颜色', text: '字体颜色' };
