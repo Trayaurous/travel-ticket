@@ -132,7 +132,7 @@ function updateEmptyState() {
 function limitTitleLines() {
     const input = document.getElementById('titleInput');
     const lines = input.value.replace(/\r/g, '').split('\n');
-    if (lines.length > 5) input.value = lines.slice(0, 5).join('\n');
+    if (lines.length > 4) input.value = lines.slice(0, 4).join('\n');
 }
 
 function renderColorPickers() {
@@ -408,29 +408,28 @@ function drawTextBlock(c, x, y, w, h, scale, options = {}) {
     const font = fontCss[document.getElementById('fontSelect').value] || fontCss.system;
     const titleText = document.getElementById('titleInput').value || 'TRIP';
     c.font = `900 ${Math.max(28, h * 0.115 * scale)}px ${font}`;
-    const titleLineCount = getTitleLines(c, titleText, w, 5).length;
+    const titleLineCount = getTitleLines(c, titleText, w, 4).length;
     const titleSize = Math.max(16, h * 0.115 * scale);
     const titleLineH = titleSize * 0.93;
-    const titleBlockH = Math.max(h * 0.28, titleLineH * titleLineCount);
-    const detailShift = titleLineCount === 2 ? h * 0.025 : 0;
+    const titleY = y - (titleLineCount > 3 ? h * 0.045 * (titleLineCount - 3) : 0);
     c.fillStyle = state.text;
     c.textBaseline = 'top';
     c.font = `900 ${titleSize}px ${font}`;
-    drawTitleLines(c, titleText, x, y, w, 5, titleLineH);
+    drawTitleLines(c, titleText, x, titleY, w, 4, titleLineH);
     if (options.separator) {
-        drawDashedLine(c, x, y + Math.max(h * 0.34, titleBlockH + h * 0.045), x + w * 0.82, y + Math.max(h * 0.34, titleBlockH + h * 0.045), 0.34, 2, [7, 7]);
+        drawDashedLine(c, x, y + h * 0.53, x + w * 0.82, y + h * 0.53, 0.34, 2, [7, 7]);
     }
     c.font = `800 ${Math.max(20, h * 0.067 * scale)}px ${font}`;
-    c.fillText(document.getElementById('dateInput').value || '', x, y + Math.max(h * 0.43, titleBlockH + h * 0.08) + detailShift);
+    c.fillText(document.getElementById('dateInput').value || '', x, y + h * 0.43);
     c.font = `800 ${Math.max(14, h * 0.044 * scale)}px ${font}`;
     c.globalAlpha = 0.78;
-    c.fillText(document.getElementById('line1Input').value || '', x, y + h * 0.60 + detailShift);
-    c.fillText(document.getElementById('line2Input').value || '', x, y + h * 0.72 + detailShift);
+    c.fillText(document.getElementById('line1Input').value || '', x, y + h * 0.60);
+    c.fillText(document.getElementById('line2Input').value || '', x, y + h * 0.72);
     c.globalAlpha = 1;
 }
 
 function getTitleLines(c, text, w, maxLines) {
-    const explicitLines = text.replace(/\r/g, '').split('\n').map(value => value.trim()).filter(Boolean).slice(0, 5);
+    const explicitLines = text.replace(/\r/g, '').split('\n').map(value => value.trim()).filter(Boolean).slice(0, 4);
     const lines = [];
     for (const raw of explicitLines.length ? explicitLines : ['TRIP']) {
         const normalized = raw.replace(/\s+/g, ' ');
