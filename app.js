@@ -409,10 +409,10 @@ function drawTextBlock(c, x, y, w, h, scale, options = {}) {
     const titleText = document.getElementById('titleInput').value || 'TRIP';
     c.font = `900 ${Math.max(28, h * 0.115 * scale)}px ${font}`;
     const titleLineCount = getTitleLines(c, titleText, w, 5).length;
-    const titleSize = Math.max(16, h * 0.115 * scale * (titleLineCount >= 3 ? 0.62 : 1));
-    const titleLineH = titleSize * (titleLineCount >= 3 ? 0.84 : 0.93);
+    const titleSize = Math.max(16, h * 0.115 * scale);
+    const titleLineH = titleSize * 0.93;
     const titleBlockH = Math.max(h * 0.28, titleLineH * titleLineCount);
-    const detailShift = titleLineCount >= 3 ? h * 0.045 : (titleLineCount === 2 ? h * 0.025 : 0);
+    const detailShift = titleLineCount === 2 ? h * 0.025 : 0;
     c.fillStyle = state.text;
     c.textBaseline = 'top';
     c.font = `900 ${titleSize}px ${font}`;
