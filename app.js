@@ -5,6 +5,12 @@ const recommendedColors = {
 };
 const paletteFallbackColors = ['#A7535A', '#D8CDB8', '#7E93A8', '#B6C3B6', '#4A4A4A'];
 const labels = { bg: '背景颜色', ticket: '票根颜色', text: '字体颜色' };
+const paperLayouts = new Set(['wide', 'sq']);
+const paperDimensions = {
+    wide: { outerW: 108, outerH: 86, photoW: 99, photoH: 62, photoTop: 5 },
+    sq: { outerW: 72, outerH: 86, photoW: 62, photoH: 62, photoTop: 5 }
+};
+const compactStubRatio = 0.40;
 const fontCss = {
     system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     poster: "'Arial Black', Impact, sans-serif",
@@ -64,6 +70,7 @@ function bindControls() {
         btn.addEventListener('click', () => {
             state.layout = btn.dataset.layout;
             document.querySelectorAll('[data-layout]').forEach(item => item.classList.toggle('active', item === btn));
+            renderColorPickers();
             renderPreview();
         });
     });
@@ -140,7 +147,7 @@ function renderColorPickers() {
     root.innerHTML = ['bg', 'ticket', 'text'].map(target => `
         <div class="color-picker" id="picker-${target}">
             <button class="color-trigger" type="button" data-toggle-color="${target}">
-                <span>${labels[target]}</span>
+                <span>${getColorLabel(target)}</span>
                 <span class="swatch" id="swatch-${target}" style="background:${state[target]}"></span>
             </button>
             <div class="color-menu">
@@ -173,6 +180,11 @@ function renderColorPickers() {
     });
 }
 
+function getColorLabel(target) {
+    if (target === 'ticket' && paperLayouts.has(state.layout)) return '相纸颜色';
+    return labels[target];
+}
+
 function colorDot(color, target, canHover = false) {
     return `<button class="color-dot" type="button" data-color="${color}" data-target="${target}" data-can-hover="${canHover}" style="background:${color}" title="${color}"></button>`;
 }
@@ -203,12 +215,25 @@ function renderCanvas(targetCanvas, w, h) {
     c.fillStyle = state.bg;
     c.fillRect(0, 0, w, h);
 
-    const base = Math.min(w, h);
-    const ticketW = Math.min(w * 0.86, base * 1.45);
-    const ticketH = ticketW * 0.40;
+    const { width: ticketW, height: ticketH } = getLayoutSize(w, h, state.layout);
     const x = (w - ticketW) / 2;
     const y = (h - ticketH) / 2;
     drawTicket(c, x, y, ticketW, ticketH, state.layout);
+}
+
+function getLayoutSize(canvasW, canvasH, layout) {
+    const base = Math.min(canvasW, canvasH);
+    if (!paperLayouts.has(layout)) {
+        const aspect = layout === 'compact' ? 4 / 3 + compactStubRatio : 2.5;
+        const width = Math.min(canvasW * 0.86, base * 1.45);
+        return { width, height: width / aspect };
+    }
+
+    const wideAspect = paperDimensions.wide.outerW / paperDimensions.wide.outerH;
+    const wideWidth = Math.min(canvasW * 0.78, canvasH * 0.86 * wideAspect);
+    const sharedHeight = wideWidth / wideAspect;
+    const aspect = paperDimensions[layout].outerW / paperDimensions[layout].outerH;
+    return { width: sharedHeight * aspect, height: sharedHeight };
 }
 
 function drawTicket(c, x, y, w, h, layout) {
@@ -225,23 +250,18 @@ function drawTicket(c, x, y, w, h, layout) {
     c.save();
     path(c, x, y, w, h);
     c.clip();
-    if (layout === 'boarding') {
-        drawBoarding(c, x, y, w, h);
-    } else if (layout === 'gallery') {
-        drawGallery(c, x, y, w, h);
-    } else if (layout === 'compact') {
+    if (layout === 'compact') {
         drawCompact(c, x, y, w, h);
+    } else if (paperLayouts.has(layout)) {
+        drawPaper(c, x, y, w, h, layout);
     } else {
         drawClassic(c, x, y, w, h);
     }
     c.restore();
-
-    if (layout === 'gallery') drawGallerySplitNotches(c, x, y, w, h);
 }
 
 function getTicketPath(layout) {
-    if (layout === 'boarding') return plainTicketPath;
-    if (layout === 'gallery') return plainTicketPath;
+    if (paperLayouts.has(layout)) return rectangularTicketPath;
     return rightNotchTicketPath;
 }
 
@@ -259,8 +279,10 @@ function roundedRectPath(c, x, y, w, h, r) {
     c.closePath();
 }
 
-function plainTicketPath(c, x, y, w, h) {
-    roundedRectPath(c, x, y, w, h, Math.min(w, h) * 0.07);
+function rectangularTicketPath(c, x, y, w, h) {
+    c.beginPath();
+    c.rect(x, y, w, h);
+    c.closePath();
 }
 
 function rightNotchTicketPath(c, x, y, w, h) {
@@ -303,31 +325,6 @@ function drawPhoto(c, x, y, w, h) {
     c.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
-function drawPhotoFramed(c, x, y, w, h, radius = 18, alpha = 0.24, lineRatio = 0.008) {
-    c.save();
-    roundedRectPath(c, x, y, w, h, radius);
-    c.clip();
-    drawPhoto(c, x, y, w, h);
-    c.restore();
-    c.save();
-    c.strokeStyle = state.text;
-    c.globalAlpha = alpha;
-    c.lineWidth = Math.max(1, Math.min(w, h) * lineRatio);
-    roundedRectPath(c, x, y, w, h, radius);
-    c.stroke();
-    c.restore();
-}
-
-function strokeRoundedBox(c, x, y, w, h, radius = 18, alpha = 0.22) {
-    c.save();
-    c.strokeStyle = state.text;
-    c.globalAlpha = alpha;
-    c.lineWidth = Math.max(2, Math.min(w, h) * 0.008);
-    roundedRectPath(c, x, y, w, h, radius);
-    c.stroke();
-    c.restore();
-}
-
 function drawPhotoPlaceholder(c, x, y, w, h) {
     const gradient = c.createLinearGradient(x, y, x + w, y + h);
     gradient.addColorStop(0, '#A9D8D4');
@@ -350,57 +347,58 @@ function drawClassic(c, x, y, w, h) {
     drawTextBlock(c, x + w * 0.78, y + h * 0.16, w * 0.18, h, 1.0);
 }
 
-function drawBoarding(c, x, y, w, h) {
-    const photoW = w * 0.70;
-    const seamX = x + w * 0.725;
-    const textX = x + w * 0.755;
-    const textY = y + h * 0.15;
-    const textW = w * 0.18;
-    drawPhoto(c, x, y, photoW, h);
-
-    drawDashedLine(c, seamX, y + h * 0.08, seamX, y + h * 0.92, 0.54, 3.2, [9, 7]);
-    drawDashedLine(c, textX, y + h * 0.53, textX + textW * 0.90, y + h * 0.53, 0.36, 2, [7, 7]);
-
-    drawTextBlock(c, textX, textY, textW, h, 0.74);
-}
-
-function drawGallery(c, x, y, w, h) {
-    const pad = w * 0.035;
-    const gap = w * 0.026;
-    const photoX = x + pad;
-    const photoY = y + h * 0.10;
-    const photoW = w * 0.66;
-    const photoH = h * 0.80;
-    const splitX = photoX + photoW + gap * 0.48;
-    const textX = splitX + gap * 0.92;
-    const textY = y + h * 0.10;
-    const textW = x + w - pad - textX;
-    const textH = h * 0.80;
-    drawPhotoFramed(c, photoX, photoY, photoW, photoH, h * 0.045, 0.075, 0.0010);
-    strokeRoundedBox(c, textX, textY, textW, textH, h * 0.045, 0.18);
-    drawDashedLine(c, splitX, y + h * 0.11, splitX, y + h * 0.89, 0.30, 2.2, [8, 8]);
-    drawTextBlock(c, textX + textW * 0.10, textY + textH * 0.08, textW * 0.80, textH, 0.66);
-}
-
 function drawCompact(c, x, y, w, h) {
-    drawPhoto(c, x, y, w * 0.80, h);
-    drawTextBlock(c, x + w * 0.83, y + h * 0.11, w * 0.14, h, 0.70);
+    const photoW = h * 4 / 3;
+    const stubPad = h * 0.05;
+    drawPhoto(c, x, y, photoW, h);
+    drawTextBlock(c, x + photoW + stubPad, y + h * 0.11, w - photoW - stubPad * 1.55, h, 0.68);
 }
 
-function drawGallerySplitNotches(c, x, y, w, h) {
-    const pad = w * 0.035;
-    const photoW = w * 0.66;
-    const gap = w * 0.026;
-    const splitX = x + pad + photoW + gap * 0.48;
-    const notch = h * 0.055;
+function drawPaper(c, x, y, w, h, layout) {
+    const dimensions = paperDimensions[layout];
+    const photoW = w * dimensions.photoW / dimensions.outerW;
+    const photoH = h * dimensions.photoH / dimensions.outerH;
+    const sidePad = (w - photoW) / 2;
+    const topPad = h * dimensions.photoTop / dimensions.outerH;
+    const photoX = x + sidePad;
+    const photoY = y + topPad;
+
+    drawPhoto(c, photoX, photoY, photoW, photoH);
+    drawPaperText(c, x + sidePad, photoY + photoH, photoW, y + h - photoY - photoH, layout);
+}
+
+function drawPaperText(c, x, y, w, h, layout) {
+    const font = fontCss[document.getElementById('fontSelect').value] || fontCss.system;
+    const titleText = document.getElementById('titleInput').value.replace(/\s+/g, ' ').trim() || 'TRIP';
+    const dateText = document.getElementById('dateInput').value || '';
+    const titleCaption = document.getElementById('line1Input').value || '';
+    const dateCaption = document.getElementById('line2Input').value || '';
+    const topGap = h * (layout === 'wide' ? 0.18 : 0.14);
+    const columnGap = w * 0.07;
+    const leftW = w * 0.48;
+    const rightW = w - leftW - columnGap;
+    const titleSize = Math.max(24, Math.min(h * 0.35, w * (layout === 'wide' ? 0.07 : 0.085)));
+    const dateSize = Math.max(16, titleSize * 0.48);
+    const smallSize = Math.max(13, titleSize * 0.34);
+
     c.save();
-    c.fillStyle = state.bg;
-    c.beginPath();
-    c.arc(splitX, y, notch, 0, Math.PI * 2);
-    c.fill();
-    c.beginPath();
-    c.arc(splitX, y + h, notch, 0, Math.PI * 2);
-    c.fill();
+    c.fillStyle = state.text;
+    c.textBaseline = 'top';
+
+    c.textAlign = 'left';
+    c.font = `800 ${dateSize}px ${font}`;
+    c.fillText(dateText, x, y + topGap, leftW);
+    c.globalAlpha = 0.78;
+    c.font = `700 ${smallSize}px ${font}`;
+    c.fillText(dateCaption, x, y + topGap + dateSize * 1.30, leftW);
+
+    c.globalAlpha = 1;
+    c.textAlign = 'right';
+    c.font = `900 ${titleSize}px ${font}`;
+    c.fillText(titleText, x + w, y + topGap, rightW);
+    c.globalAlpha = 0.78;
+    c.font = `700 ${smallSize}px ${font}`;
+    c.fillText(titleCaption, x + w, y + topGap + titleSize * 1.08, rightW);
     c.restore();
 }
 

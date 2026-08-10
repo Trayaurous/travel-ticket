@@ -8,6 +8,19 @@
 
 * { box-sizing: border-box; }
 
+html,
+body,
+.control-pane {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.control-pane::-webkit-scrollbar {
+    display: none;
+}
+
 body {
     margin: 0;
     min-height: 100dvh;
@@ -88,10 +101,12 @@ body {
 }
 
 #ticketCanvas {
+    width: auto;
+    height: auto;
     max-width: 100%;
     max-height: 100%;
-    width: min(760px, 100%);
-    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
     border-radius: 12px;
     box-shadow: 0 22px 54px rgba(70,60,45,0.13);
 }
@@ -129,8 +144,7 @@ body {
     height: 100dvh;
     overflow-y: auto;
     padding: 22px;
-    background: var(--panel-bg);
-    backdrop-filter: blur(16px);
+    background: transparent;
     border-left: 1px solid rgba(80,70,60,0.08);
     box-shadow: -14px 0 38px rgba(70,60,45,0.11);
 }
