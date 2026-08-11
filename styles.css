@@ -1,3 +1,10 @@
+@import url("./fonts/noto-sans-sc/font.css");
+@import url("./fonts/bebas-neue/font.css");
+@import url("./fonts/jetbrains-mono/font.css");
+@import url("./fonts/noto-serif-sc/font.css");
+@import url("./fonts/ma-shan-zheng/font.css");
+@import url("./fonts/long-cang/font.css");
+
 :root {
     --bg-color: #E6E0D4;
     --panel-bg: rgba(247,245,240,0.86);
@@ -219,6 +226,163 @@ textarea:focus {
     border-color: rgba(167,83,90,0.35);
 }
 
+.font-picker {
+    position: relative;
+}
+
+.font-picker.open {
+    z-index: 30;
+}
+
+.font-trigger {
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid rgba(80,70,60,0.08);
+    border-radius: 13px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #ECE7DD;
+    color: var(--text-main);
+    outline: none;
+    box-shadow: inset 4px 4px 8px rgba(116,105,90,0.16), inset -4px -4px 8px rgba(255,255,255,0.70);
+    cursor: pointer;
+    text-align: left;
+}
+
+.font-trigger:focus-visible {
+    border-color: rgba(167,83,90,0.45);
+    box-shadow: inset 4px 4px 8px rgba(116,105,90,0.13), inset -4px -4px 8px rgba(255,255,255,0.66), 0 0 0 2px rgba(167,83,90,0.12);
+}
+
+.font-trigger-copy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.font-trigger-copy strong {
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.font-trigger-copy small {
+    color: #968d84;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.font-trigger > i {
+    flex: 0 0 auto;
+    color: var(--morandi-red);
+    transition: transform 0.18s ease;
+}
+
+.font-picker.open .font-trigger > i {
+    transform: rotate(180deg);
+}
+
+.font-menu {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 9px);
+    left: 0;
+    right: 0;
+    display: none;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid rgba(80,70,60,0.08);
+    border-radius: 16px;
+    background: rgba(247,245,240,0.98);
+    box-shadow: 0 18px 38px rgba(70,60,45,0.16);
+}
+
+.font-picker.open .font-menu {
+    display: grid;
+}
+
+.font-menu-column {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 7px;
+}
+
+.chinese-font-column {
+    padding-left: 10px;
+    border-left: 1px solid rgba(116,105,90,0.12);
+}
+
+.font-menu-title {
+    padding: 0 3px 2px;
+    color: #9a9188;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.font-option {
+    width: 100%;
+    min-height: 32px;
+    border: 0;
+    border-radius: 10px;
+    padding: 8px 9px;
+    overflow: hidden;
+    background: #ECE7DD;
+    color: #776f68;
+    box-shadow: 4px 4px 9px rgba(116,105,90,0.12), -4px -4px 9px rgba(255,255,255,0.56);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.font-option:hover {
+    color: var(--morandi-red);
+    transform: translateY(-1px);
+}
+
+.font-option.active {
+    color: #fff;
+    background: var(--morandi-red);
+    box-shadow: 0 7px 15px rgba(167,83,90,0.20);
+}
+
+[data-general-font="system"] {
+    font-family: "Noto Sans SC Variable", sans-serif;
+}
+
+[data-general-font="poster"] {
+    font-family: "Bebas Neue", sans-serif;
+}
+
+[data-general-font="mono"] {
+    font-family: "JetBrains Mono Variable", monospace;
+}
+
+[data-general-font="serif"] {
+    font-family: "Noto Serif SC Variable", serif;
+}
+
+[data-chinese-font="kaiti"] {
+    font-family: "Ma Shan Zheng", KaiTi, cursive;
+    font-weight: 400;
+}
+
+[data-chinese-font="xingkai"] {
+    font-family: "Long Cang", STXingkai, cursive;
+    font-weight: 400;
+}
+
 .layout-grid,
 .ratio-grid {
     display: grid;
@@ -333,7 +497,7 @@ textarea:focus {
     justify-content: center;
     flex: 0 0 30px;
     padding: 0;
-    border-color: var(--morandi-red);
+    border-color: rgba(255,255,255,0.82);
     background: transparent;
     color: var(--morandi-red);
     font-size: 14px;
@@ -376,31 +540,6 @@ textarea:focus {
     margin-bottom: 11px;
     color: var(--morandi-red);
     font-size: 12px;
-    font-weight: 800;
-}
-
-.native-color-control {
-    display: grid;
-    grid-template-columns: 42px 1fr auto;
-    align-items: center;
-    gap: 9px;
-    margin: 0;
-    color: #776f68;
-    font-size: 11px;
-}
-
-.native-color-control input[type="color"] {
-    width: 42px;
-    height: 38px;
-    padding: 3px;
-    border-radius: 11px;
-    cursor: pointer;
-}
-
-.native-color-control output {
-    color: #8D8981;
-    font-family: "Courier New", monospace;
-    font-size: 11px;
     font-weight: 800;
 }
 
@@ -473,6 +612,67 @@ textarea:focus {
 
 .full-action {
     width: 100%;
+}
+
+body.color-sampling,
+body.color-sampling * {
+    cursor: none !important;
+}
+
+.color-sampling-loupe {
+    position: fixed;
+    z-index: 1001;
+    width: 80px;
+    height: 80px;
+    transform: translate(-50%, -50%);
+    border: 3px solid rgba(255,255,255,0.98);
+    outline: 2px solid rgba(167,83,90,0.92);
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 10px 28px rgba(66,48,42,0.32);
+    image-rendering: pixelated;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.08s ease;
+}
+
+.color-sampling-loupe.visible {
+    opacity: 1;
+}
+
+.color-sampling-loupe.touch {
+    transform: translate(-50%, calc(-100% - 20px));
+}
+
+.color-sampling-hint {
+    position: fixed;
+    z-index: 1000;
+    left: 50%;
+    top: 22px;
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    column-gap: 8px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    color: #fff;
+    background: rgba(142,69,75,0.94);
+    box-shadow: 0 12px 28px rgba(70,60,45,0.22);
+    pointer-events: none;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.color-sampling-hint i {
+    grid-row: 1 / 3;
+    font-size: 18px;
+}
+
+.color-sampling-hint small {
+    opacity: 0.74;
+    font-size: 10px;
+    font-weight: 700;
 }
 
 .primary-btn {

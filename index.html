@@ -49,13 +49,31 @@
                     <input id="dateInput" value="2026 - 06">
                 </div>
                 <div class="field">
-                    <label for="fontSelect">字体</label>
-                    <select id="fontSelect">
-                        <option value="system">System Sans</option>
-                        <option value="poster">Bold Poster</option>
-                        <option value="mono">Ticket Mono</option>
-                        <option value="serif">Editorial Serif</option>
-                    </select>
+                    <label>字体</label>
+                    <div class="font-picker" id="fontPicker">
+                        <button class="font-trigger" id="fontMenuTrigger" type="button" aria-label="选择字体" aria-expanded="false">
+                            <span class="font-trigger-copy">
+                                <strong id="generalFontLabel">System Sans</strong>
+                                <small id="chineseFontLabel">中文：通用</small>
+                            </span>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <div class="font-menu" id="fontMenu" role="menu" aria-hidden="true">
+                            <div class="font-menu-column">
+                                <div class="font-menu-title">通用字体</div>
+                                <button class="font-option active" type="button" data-general-font="system">System Sans</button>
+                                <button class="font-option" type="button" data-general-font="poster">Bold Poster</button>
+                                <button class="font-option" type="button" data-general-font="mono">Ticket Mono</button>
+                                <button class="font-option" type="button" data-general-font="serif">Editorial Serif</button>
+                            </div>
+                            <div class="font-menu-column chinese-font-column">
+                                <div class="font-menu-title">中文字体</div>
+                                <button class="font-option active" type="button" data-chinese-font="inherit">通用</button>
+                                <button class="font-option" type="button" data-chinese-font="kaiti">毛笔手写</button>
+                                <button class="font-option" type="button" data-chinese-font="xingkai">行草艺术</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
