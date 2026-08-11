@@ -46,11 +46,13 @@ const state = {
     ratio: '1:1',
     generalFont: 'system',
     chineseFont: 'inherit',
+    shadowStrength: 1,
+    angle: 0,
     palette: ['#A7535A', '#D8CDB8', '#7E93A8', '#B6C3B6', '#4A4A4A'],
     hoverColor: '#A7535A',
     customColors: { bg: null, ticket: null, text: null },
     backgroundMode: 'color',
-    backgroundPhotoSettings: { strength: 50, saturation: 0 },
+    backgroundPhotoSettings: { strength: 50, saturation: 0, brightness: 0 },
     activeColorPanel: null,
     photoSettingsDraft: null,
     samplingTarget: null,
@@ -63,11 +65,13 @@ const canvas = document.getElementById('ticketCanvas');
 const stage = document.getElementById('stage');
 const imageInput = document.getElementById('imageInput');
 let previewRenderVersion = 0;
+let canvasFilterSupport;
 
 function init() {
     renderColorPickers();
     bindControls();
     updateFontPicker();
+    updateAngleControl();
     renderPreview();
     updateEmptyState();
 }
@@ -77,6 +81,15 @@ function bindControls() {
     document.getElementById('uploadBtn').addEventListener('click', openUpload);
     document.getElementById('resetBtn').addEventListener('click', resetTicket);
     document.getElementById('exportBtn').addEventListener('click', exportTicket);
+    document.getElementById('shadowInput').addEventListener('input', event => {
+        state.shadowStrength = Number(event.target.value);
+        renderPreview();
+    });
+    document.getElementById('angleInput').addEventListener('input', event => {
+        state.angle = Number(event.target.value);
+        updateAngleControl();
+        renderPreview();
+    });
     stage.addEventListener('click', () => {
         if (!state.photo) openUpload();
     });
@@ -162,15 +175,20 @@ function resetTicket() {
     state.ratio = '1:1';
     state.generalFont = 'system';
     state.chineseFont = 'inherit';
+    state.shadowStrength = 1;
+    state.angle = 0;
     state.customColors = { bg: null, ticket: null, text: null };
     state.backgroundMode = 'color';
-    state.backgroundPhotoSettings = { strength: 50, saturation: 0 };
+    state.backgroundPhotoSettings = { strength: 50, saturation: 0, brightness: 0 };
     closeColorPanel();
     closeFontMenu();
-    document.getElementById('titleInput').value = 'SAN YA';
+    document.getElementById('titleInput').value = 'TRIP';
     document.getElementById('line1Input').value = 'TravelTicket';
     document.getElementById('line2Input').value = 'next station';
     document.getElementById('dateInput').value = '2026 - 06';
+    document.getElementById('shadowInput').value = '1';
+    document.getElementById('angleInput').value = '0';
+    updateAngleControl();
     updateFontPicker();
     document.querySelectorAll('[data-layout]').forEach(btn => btn.classList.toggle('active', btn.dataset.layout === 'classic'));
     document.querySelectorAll('[data-ratio]').forEach(btn => btn.classList.toggle('active', btn.dataset.ratio === '1:1'));
@@ -180,6 +198,27 @@ function resetTicket() {
 
 function updateEmptyState() {
     stage.classList.toggle('empty', !state.photo);
+}
+
+function updateAngleControl() {
+    const input = document.getElementById('angleInput');
+    updateCenteredRangeVisual(input);
+    document.getElementById('angleOutput').value = `${state.angle}°`;
+}
+
+function updateCenteredRangeVisual(input) {
+    const min = Number(input.min);
+    const max = Number(input.max);
+    const value = Number(input.value);
+    const zeroPosition = (0 - min) / (max - min) * 100;
+    const valuePosition = (value - min) / (max - min) * 100;
+    input.style.setProperty('--center-fill-start', `${Math.min(zeroPosition, valuePosition)}%`);
+    input.style.setProperty('--center-fill-end', `${Math.max(zeroPosition, valuePosition)}%`);
+}
+
+function formatSignedValue(value) {
+    const number = Number(value);
+    return number > 0 ? `+${number}` : String(number);
 }
 
 function limitTitleLines() {
@@ -335,8 +374,12 @@ function photoSettingsPanel() {
                 <input type="range" min="0" max="100" value="${draft.strength}" data-photo-setting="strength">
             </label>
             <label class="submenu-field range-field">
-                <span>背景饱和度 <output data-range-output="saturation">${draft.saturation}</output></span>
-                <input type="range" min="-50" max="50" value="${draft.saturation}" data-photo-setting="saturation">
+                <span>背景饱和度 <output data-range-output="saturation">${formatSignedValue(draft.saturation)}</output></span>
+                <input class="centered-range" type="range" min="-50" max="50" value="${draft.saturation}" data-photo-setting="saturation">
+            </label>
+            <label class="submenu-field range-field">
+                <span>背景亮度 <output data-range-output="brightness">${formatSignedValue(draft.brightness)}</output></span>
+                <input class="centered-range" type="range" min="-25" max="25" value="${draft.brightness}" data-photo-setting="brightness">
             </label>
             <div class="submenu-actions">
                 <button type="button" class="secondary-action" data-color-panel-cancel>取消</button>
@@ -375,10 +418,13 @@ function bindSpecialColorControls(root) {
     });
 
     root.querySelectorAll('[data-photo-setting]').forEach(control => {
+        if (control.classList.contains('centered-range')) updateCenteredRangeVisual(control);
         control.addEventListener('input', () => {
             const key = control.dataset.photoSetting;
             state.photoSettingsDraft[key] = Number(control.value);
-            root.querySelector(`[data-range-output="${key}"]`)?.replaceChildren(String(control.value));
+            const output = key === 'strength' ? String(control.value) : formatSignedValue(control.value);
+            root.querySelector(`[data-range-output="${key}"]`)?.replaceChildren(output);
+            if (control.classList.contains('centered-range')) updateCenteredRangeVisual(control);
         });
     });
 
@@ -666,29 +712,192 @@ function renderCanvas(targetCanvas, w, h) {
         c.fillRect(0, 0, w, h);
     }
 
-    const { width: ticketW, height: ticketH } = getLayoutSize(w, h, state.layout);
-    const x = (w - ticketW) / 2;
-    const y = (h - ticketH) / 2;
-    drawTicket(c, x, y, ticketW, ticketH, state.layout);
+    let { width: ticketW, height: ticketH } = getLayoutSize(w, h, state.layout);
+    const angle = state.angle * Math.PI / 180;
+    const rotatedW = Math.abs(ticketW * Math.cos(angle)) + Math.abs(ticketH * Math.sin(angle));
+    const rotatedH = Math.abs(ticketW * Math.sin(angle)) + Math.abs(ticketH * Math.cos(angle));
+    const fitScale = Math.min(1, w * 0.90 / rotatedW, h * 0.90 / rotatedH);
+    ticketW *= fitScale;
+    ticketH *= fitScale;
+
+    c.save();
+    c.translate(w / 2, h / 2);
+    c.rotate(angle);
+    drawTicket(c, -ticketW / 2, -ticketH / 2, ticketW, ticketH, state.layout);
+    c.restore();
 }
 
 function drawPhotoBackground(c, w, h) {
     const settings = state.backgroundPhotoSettings;
     const strength = Math.max(0, Math.min(100, settings.strength));
     const saturation = Math.max(50, Math.min(150, 100 + settings.saturation));
+    const brightness = Math.max(75, Math.min(125, 100 + settings.brightness));
     const base = Math.min(w, h);
 
     c.fillStyle = state.bg;
     c.fillRect(0, 0, w, h);
+
+    if (!hasWorkingCanvasFilter()) {
+        drawPhotoBackgroundFallback(c, w, h, strength, saturation, brightness);
+        return;
+    }
+
     c.save();
 
     const blurPx = base * strength / 1800;
     const scale = 1 + blurPx * 4 / base;
     const layerW = w * scale;
     const layerH = h * scale;
-    c.filter = `saturate(${saturation}%) blur(${blurPx.toFixed(2)}px)`;
+    c.filter = `brightness(${brightness}%) saturate(${saturation}%) blur(${blurPx.toFixed(2)}px)`;
     drawImageCover(c, state.photo, (w - layerW) / 2, (h - layerH) / 2, layerW, layerH);
     c.restore();
+}
+
+function hasWorkingCanvasFilter() {
+    if (canvasFilterSupport !== undefined) return canvasFilterSupport;
+
+    const userAgent = navigator.userAgent || '';
+    const isSafariWebKit = /AppleWebKit/i.test(userAgent) && !/(Chrome|Chromium|Edg|OPR|Android)/i.test(userAgent);
+    if (isSafariWebKit) {
+        canvasFilterSupport = false;
+        return canvasFilterSupport;
+    }
+
+    const testCanvas = document.createElement('canvas');
+    testCanvas.width = 9;
+    testCanvas.height = 9;
+    const testContext = testCanvas.getContext('2d', { willReadFrequently: true });
+    if (!testContext || !('filter' in testContext)) {
+        canvasFilterSupport = false;
+        return canvasFilterSupport;
+    }
+
+    try {
+        const sourceCanvas = document.createElement('canvas');
+        sourceCanvas.width = 1;
+        sourceCanvas.height = 1;
+        const sourceContext = sourceCanvas.getContext('2d');
+        sourceContext.fillStyle = '#FFFFFF';
+        sourceContext.fillRect(0, 0, 1, 1);
+
+        testContext.clearRect(0, 0, 9, 9);
+        testContext.filter = 'blur(2px)';
+        testContext.drawImage(sourceCanvas, 4, 4);
+        testContext.filter = 'none';
+        const pixels = testContext.getImageData(0, 0, 9, 9).data;
+        const centerAlpha = pixels[(4 * 9 + 4) * 4 + 3];
+        const nearbyAlpha = pixels[(4 * 9 + 2) * 4 + 3];
+        canvasFilterSupport = centerAlpha < 250 && nearbyAlpha > 0;
+    } catch (error) {
+        canvasFilterSupport = false;
+    }
+
+    return canvasFilterSupport;
+}
+
+function drawPhotoBackgroundFallback(c, w, h, strength, saturation, brightness) {
+    if (strength === 0 && saturation === 100 && brightness === 100) {
+        drawImageCover(c, state.photo, 0, 0, w, h);
+        return;
+    }
+
+    const maxWorkSide = 640;
+    const workScale = Math.min(1, maxWorkSide / Math.max(w, h));
+    const workW = Math.max(1, Math.round(w * workScale));
+    const workH = Math.max(1, Math.round(h * workScale));
+    const workCanvas = document.createElement('canvas');
+    workCanvas.width = workW;
+    workCanvas.height = workH;
+    const workContext = workCanvas.getContext('2d', { willReadFrequently: true });
+
+    workContext.fillStyle = state.bg;
+    workContext.fillRect(0, 0, workW, workH);
+    drawImageCover(workContext, state.photo, 0, 0, workW, workH);
+
+    const imageData = workContext.getImageData(0, 0, workW, workH);
+    adjustPixelBrightness(imageData.data, brightness / 100);
+    adjustPixelSaturation(imageData.data, saturation / 100);
+
+    const outputBlurPx = Math.min(w, h) * strength / 1800;
+    const radius = Math.max(0, Math.round(outputBlurPx * workScale));
+    let pixels = imageData.data;
+    if (radius > 0) {
+        for (let pass = 0; pass < 3; pass += 1) {
+            pixels = boxBlurPass(pixels, workW, workH, radius, true);
+            pixels = boxBlurPass(pixels, workW, workH, radius, false);
+        }
+        imageData.data.set(pixels);
+    }
+
+    workContext.putImageData(imageData, 0, 0);
+    c.save();
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = 'high';
+    c.drawImage(workCanvas, 0, 0, w, h);
+    c.restore();
+}
+
+function adjustPixelBrightness(pixels, factor) {
+    if (Math.abs(factor - 1) < 0.001) return;
+    for (let i = 0; i < pixels.length; i += 4) {
+        pixels[i] *= factor;
+        pixels[i + 1] *= factor;
+        pixels[i + 2] *= factor;
+    }
+}
+
+function adjustPixelSaturation(pixels, factor) {
+    if (Math.abs(factor - 1) < 0.001) return;
+    for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
+        const luminance = r * 0.2126 + g * 0.7152 + b * 0.0722;
+        pixels[i] = luminance + (r - luminance) * factor;
+        pixels[i + 1] = luminance + (g - luminance) * factor;
+        pixels[i + 2] = luminance + (b - luminance) * factor;
+    }
+}
+
+function boxBlurPass(source, width, height, radius, horizontal) {
+    const target = new Uint8ClampedArray(source.length);
+    const windowSize = radius * 2 + 1;
+    const outerLength = horizontal ? height : width;
+    const innerLength = horizontal ? width : height;
+
+    for (let outer = 0; outer < outerLength; outer += 1) {
+        const sums = [0, 0, 0, 0];
+        for (let offset = -radius; offset <= radius; offset += 1) {
+            const inner = Math.max(0, Math.min(innerLength - 1, offset));
+            const x = horizontal ? inner : outer;
+            const y = horizontal ? outer : inner;
+            const index = (y * width + x) * 4;
+            for (let channel = 0; channel < 4; channel += 1) sums[channel] += source[index + channel];
+        }
+
+        for (let inner = 0; inner < innerLength; inner += 1) {
+            const x = horizontal ? inner : outer;
+            const y = horizontal ? outer : inner;
+            const targetIndex = (y * width + x) * 4;
+            for (let channel = 0; channel < 4; channel += 1) {
+                target[targetIndex + channel] = sums[channel] / windowSize;
+            }
+
+            const removeInner = Math.max(0, Math.min(innerLength - 1, inner - radius));
+            const addInner = Math.max(0, Math.min(innerLength - 1, inner + radius + 1));
+            const removeX = horizontal ? removeInner : outer;
+            const removeY = horizontal ? outer : removeInner;
+            const addX = horizontal ? addInner : outer;
+            const addY = horizontal ? outer : addInner;
+            const removeIndex = (removeY * width + removeX) * 4;
+            const addIndex = (addY * width + addX) * 4;
+            for (let channel = 0; channel < 4; channel += 1) {
+                sums[channel] += source[addIndex + channel] - source[removeIndex + channel];
+            }
+        }
+    }
+
+    return target;
 }
 
 function getLayoutSize(canvasW, canvasH, layout) {
@@ -707,10 +916,16 @@ function getLayoutSize(canvasW, canvasH, layout) {
 
 function drawTicket(c, x, y, w, h, layout) {
     const path = getTicketPath(layout);
+    const shadows = [
+        { color: 'transparent', blur: 0, offsetY: 0 },
+        { color: 'rgba(70,60,45,0.16)', blur: 28, offsetY: 18 },
+        { color: 'rgba(70,60,45,0.30)', blur: 46, offsetY: 28 }
+    ];
+    const shadow = shadows[state.shadowStrength] || shadows[1];
     c.save();
-    c.shadowColor = 'rgba(70,60,45,0.16)';
-    c.shadowBlur = 28;
-    c.shadowOffsetY = 18;
+    c.shadowColor = shadow.color;
+    c.shadowBlur = shadow.blur;
+    c.shadowOffsetY = shadow.offsetY;
     path(c, x, y, w, h);
     c.fillStyle = state.ticket;
     c.fill();
@@ -849,21 +1064,22 @@ function drawPaperText(c, x, y, w, h, layout) {
     const titleSize = Math.max(24, Math.min(h * 0.35, w * (layout === 'wide' ? 0.07 : 0.085)));
     const dateSize = Math.max(16, titleSize * 0.48);
     const smallSize = Math.max(15, titleSize * 0.42);
+    const dateGroupOffset = Math.max(0, (titleSize - dateSize) * 0.72);
 
     c.save();
     c.fillStyle = state.text;
     c.textBaseline = 'top';
 
     c.textAlign = 'left';
-    drawStyledText(c, dateText, x, y + topGap, leftW, dateSize, 800);
+    drawStyledText(c, dateText, x, y + topGap + dateGroupOffset, leftW, dateSize, 800);
     c.globalAlpha = 0.78;
-    drawStyledText(c, dateCaption, x, y + topGap + dateSize * 1.30, leftW, smallSize, 700, 1.22);
+    drawStyledText(c, dateCaption, x, y + topGap + dateGroupOffset + dateSize * 1.30, leftW, smallSize, 700, 1.22);
 
     c.globalAlpha = 1;
     c.textAlign = 'right';
     drawStyledText(c, titleText, x + w, y + topGap, rightW, titleSize, 900);
     c.globalAlpha = 0.78;
-    drawStyledText(c, titleCaption, x + w, y + topGap + titleSize * 1.08, rightW, smallSize, 700, 1.22);
+    drawStyledText(c, titleCaption, x + w, y + topGap + titleSize * 1.28, rightW, smallSize, 700, 1.22);
     c.restore();
 }
 

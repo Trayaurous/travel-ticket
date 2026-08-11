@@ -34,7 +34,7 @@
                 <div class="section-title"><i class="bi bi-type"></i> 文字</div>
                 <div class="field">
                     <label for="titleInput">标题</label>
-                    <textarea id="titleInput" rows="4" maxlength="80">SAN YA</textarea>
+                    <textarea id="titleInput" rows="4" maxlength="80">TRIP</textarea>
                 </div>
                 <div class="field">
                     <label for="line1Input">小字 1</label>
@@ -90,6 +90,24 @@
             <section class="section color-section">
                 <div class="section-title"><i class="bi bi-eyedropper"></i> 颜色</div>
                 <div id="colorPickers"></div>
+            </section>
+
+            <section class="section effect-section">
+                <div class="section-title"><i class="bi bi-sliders"></i> 效果</div>
+                <label class="effect-field" for="shadowInput">
+                    <span class="effect-field-heading">阴影强度</span>
+                    <span class="stepped-range">
+                        <input id="shadowInput" type="range" min="0" max="2" step="1" value="1">
+                        <span class="range-ticks" aria-hidden="true"><i></i><i></i><i></i></span>
+                    </span>
+                </label>
+                <label class="effect-field" for="angleInput">
+                    <span class="effect-field-heading">
+                        <span>倾斜角度</span>
+                        <output id="angleOutput" for="angleInput">0°</output>
+                    </span>
+                    <input id="angleInput" type="range" min="-15" max="15" step="1" value="0">
+                </label>
             </section>
 
             <section class="section ratio-section">
