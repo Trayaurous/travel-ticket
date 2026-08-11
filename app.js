@@ -1,7 +1,7 @@
 const recommendedColors = {
-    bg: ['#E8DDCC', '#A7AAA3', '#E49c69', '#b7d9d9', '#ffb8a0'],
-    ticket: ['#FFFFFF', '#C9BBA7', '#F2C299', '#289FB7', '#A7535A'],
-    text: ['#1F1F1F', '#336278', '#5C3B2E', '#E8F8FF', '#ffddd4']
+    bg: ['#E8DDCC', '#B7D9D9', '#FFB8A0'],
+    ticket: ['#FFFFFF', '#F2C299', '#289FB7', '#A7535A'],
+    text: ['#1F1F1F', '#336278', '#5C3B2E', '#E8F8FF']
 };
 const paletteFallbackColors = ['#A7535A', '#D8CDB8', '#7E93A8', '#B6C3B6', '#4A4A4A'];
 const labels = { bg: '背景颜色', ticket: '票根颜色', text: '字体颜色' };
@@ -10,7 +10,6 @@ const paperDimensions = {
     wide: { outerW: 108, outerH: 86, photoW: 99, photoH: 62, photoTop: 5 },
     sq: { outerW: 72, outerH: 86, photoW: 62, photoH: 62, photoTop: 5 }
 };
-const compactStubRatio = 0.40;
 const fontCss = {
     system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     poster: "'Arial Black', Impact, sans-serif",
@@ -33,6 +32,11 @@ const state = {
     ratio: '1:1',
     palette: ['#A7535A', '#D8CDB8', '#7E93A8', '#B6C3B6', '#4A4A4A'],
     hoverColor: '#A7535A',
+    customColors: { bg: null, ticket: null, text: null },
+    backgroundMode: 'color',
+    backgroundPhotoSettings: { type: 'gaussian', strength: 50, saturation: 0 },
+    activeColorPanel: null,
+    photoSettingsDraft: null,
     photo: null,
     photoName: ''
 };
@@ -49,12 +53,14 @@ function init() {
 }
 
 function bindControls() {
+    document.getElementById('colorPickers').addEventListener('click', event => event.stopPropagation());
     document.getElementById('uploadBtn').addEventListener('click', openUpload);
     document.getElementById('resetBtn').addEventListener('click', resetTicket);
     document.getElementById('exportBtn').addEventListener('click', exportTicket);
     stage.addEventListener('click', () => {
         if (!state.photo) openUpload();
     });
+    imageInput.addEventListener('click', event => event.stopPropagation());
     imageInput.addEventListener('change', handleImageUpload);
 
     ['titleInput', 'line1Input', 'line2Input', 'dateInput', 'fontSelect'].forEach(id => {
@@ -68,6 +74,7 @@ function bindControls() {
 
     document.querySelectorAll('[data-layout]').forEach(btn => {
         btn.addEventListener('click', () => {
+            closeColorPanel();
             state.layout = btn.dataset.layout;
             document.querySelectorAll('[data-layout]').forEach(item => item.classList.toggle('active', item === btn));
             renderColorPickers();
@@ -84,6 +91,7 @@ function bindControls() {
 
     document.addEventListener('click', event => {
         if (!event.target.closest('.color-picker')) {
+            closeColorPanel();
             document.querySelectorAll('.color-picker').forEach(el => el.classList.remove('open'));
         }
     });
@@ -121,6 +129,10 @@ function resetTicket() {
     state.text = '#1F1F1F';
     state.layout = 'classic';
     state.ratio = '1:1';
+    state.customColors = { bg: null, ticket: null, text: null };
+    state.backgroundMode = 'color';
+    state.backgroundPhotoSettings = { type: 'gaussian', strength: 50, saturation: 0 };
+    closeColorPanel();
     document.getElementById('titleInput').value = 'SAN YA';
     document.getElementById('line1Input').value = 'TravelTicket';
     document.getElementById('line2Input').value = 'next station';
@@ -142,17 +154,18 @@ function limitTitleLines() {
     if (lines.length > 4) input.value = lines.slice(0, 4).join('\n');
 }
 
-function renderColorPickers() {
+function renderColorPickers(openTarget = state.activeColorPanel?.target) {
     const root = document.getElementById('colorPickers');
     root.innerHTML = ['bg', 'ticket', 'text'].map(target => `
-        <div class="color-picker" id="picker-${target}">
+        <div class="color-picker${openTarget === target ? ' open' : ''}" id="picker-${target}">
             <button class="color-trigger" type="button" data-toggle-color="${target}">
                 <span>${getColorLabel(target)}</span>
-                <span class="swatch" id="swatch-${target}" style="background:${state[target]}"></span>
+                ${colorSwatch(target)}
             </button>
             <div class="color-menu">
                 <div class="color-row-label">推荐颜色</div>
-                <div class="color-row">${recommendedColors[target].map(color => colorDot(color, target)).join('')}</div>
+                <div class="color-row recommended-row">${recommendedColorButtons(target)}</div>
+                ${colorSubmenu(target)}
                 <div class="color-row-label">当前图片</div>
                 <div class="color-row">${state.palette.map(color => colorDot(color, target, true)).join('')}</div>
                 <div class="color-row-label">明度变体</div>
@@ -165,13 +178,111 @@ function renderColorPickers() {
         btn.addEventListener('click', event => {
             event.stopPropagation();
             const target = btn.dataset.toggleColor;
+            const picker = document.getElementById(`picker-${target}`);
+            const willOpen = !picker.classList.contains('open');
+            closeColorPanel();
             document.querySelectorAll('.color-picker').forEach(el => {
                 if (el.id !== `picker-${target}`) el.classList.remove('open');
             });
-            document.getElementById(`picker-${target}`).classList.toggle('open');
+            picker.classList.toggle('open', willOpen);
         });
     });
 
+    bindColorDots(root);
+    bindSpecialColorControls(root);
+}
+
+function getColorLabel(target) {
+    if (target === 'ticket' && paperLayouts.has(state.layout)) return '相纸颜色';
+    return labels[target];
+}
+
+function colorSwatch(target) {
+    if (target === 'bg' && state.backgroundMode === 'photo') {
+        return '<span class="swatch photo-swatch" id="swatch-bg"><i class="bi bi-image"></i></span>';
+    }
+    return `<span class="swatch" id="swatch-${target}" style="background:${state[target]}"></span>`;
+}
+
+function recommendedColorButtons(target) {
+    const buttons = recommendedColors[target].map(color => colorDot(color, target));
+    if (target === 'bg') buttons.push(photoBackgroundButton());
+    buttons.push(customColorButton(target));
+    return buttons.join('');
+}
+
+function photoBackgroundButton() {
+    const active = state.backgroundMode === 'photo';
+    return `<button class="color-dot special-color-dot photo-color-dot${active ? ' active' : ''}" type="button" data-photo-background title="使用模糊照片作为背景" aria-label="使用模糊照片作为背景"><i class="bi bi-image"></i></button>`;
+}
+
+function customColorButton(target) {
+    const color = state.customColors[target];
+    const active = color && state[target].toUpperCase() === color.toUpperCase() && !(target === 'bg' && state.backgroundMode === 'photo');
+    const style = color ? ` style="background:${color}"` : '';
+    return `<button class="color-dot special-color-dot custom-color-dot${color ? ' has-color' : ''}${active ? ' active' : ''}" type="button" data-custom-color="${target}" data-can-hover="${Boolean(color)}"${style} title="${color ? `${color}；再次点击重新取色` : '自定义取色'}" aria-label="自定义取色"><i class="bi bi-eyedropper"></i></button>`;
+}
+
+function colorSubmenu(target) {
+    const panel = state.activeColorPanel;
+    if (!panel || panel.target !== target) return '';
+    if (panel.type === 'photo') return photoSettingsPanel();
+    const color = state.customColors[target] || state[target];
+    return `
+        <div class="color-submenu custom-color-panel">
+            <div class="submenu-title"><i class="bi bi-eyedropper"></i> 自定义取色</div>
+            <label class="native-color-control">
+                <input type="color" value="${color}" data-custom-input="${target}">
+                <span>点击色块打开取色器</span>
+                <output data-custom-output>${color.toUpperCase()}</output>
+            </label>
+            <div class="submenu-actions">
+                <button type="button" class="secondary-action" data-color-panel-cancel>取消</button>
+                <button type="button" class="save-action" data-custom-save="${target}">保存</button>
+            </div>
+        </div>`;
+}
+
+function photoSettingsPanel() {
+    if (!state.photo) {
+        return `
+            <div class="color-submenu photo-settings-panel">
+                <div class="submenu-title"><i class="bi bi-image"></i> 照片背景</div>
+                <div class="submenu-empty">请先上传一张照片，再设置模糊背景。</div>
+                <button type="button" class="save-action full-action" data-photo-upload>上传照片</button>
+            </div>`;
+    }
+    const draft = state.photoSettingsDraft || state.backgroundPhotoSettings;
+    return `
+        <div class="color-submenu photo-settings-panel">
+            <div class="submenu-title"><i class="bi bi-image"></i> 照片背景</div>
+            <label class="submenu-field">
+                <span>模糊类型</span>
+                <select data-photo-setting="type">
+                    <option value="gaussian"${draft.type === 'gaussian' ? ' selected' : ''}>高斯模糊</option>
+                    <option value="radial"${draft.type === 'radial' ? ' selected' : ''}>径向模糊</option>
+                </select>
+            </label>
+            <label class="submenu-field range-field">
+                <span>模糊强度 <output data-range-output="strength">${draft.strength}</output></span>
+                <input type="range" min="0" max="100" value="${draft.strength}" data-photo-setting="strength">
+            </label>
+            <label class="submenu-field range-field">
+                <span>背景饱和度 <output data-range-output="saturation">${draft.saturation}</output></span>
+                <input type="range" min="-50" max="50" value="${draft.saturation}" data-photo-setting="saturation">
+            </label>
+            <div class="submenu-actions">
+                <button type="button" class="secondary-action" data-color-panel-cancel>取消</button>
+                <button type="button" class="save-action" data-photo-settings-save>保存</button>
+            </div>
+        </div>`;
+}
+
+function colorDot(color, target, canHover = false) {
+    return `<button class="color-dot" type="button" data-color="${color}" data-target="${target}" data-can-hover="${canHover}" style="background:${color}" title="${color}"></button>`;
+}
+
+function bindColorDots(root) {
     root.querySelectorAll('[data-color]').forEach(btn => {
         btn.addEventListener('click', () => chooseColor(btn.dataset.target, btn.dataset.color));
         if (btn.dataset.canHover === 'true') {
@@ -180,27 +291,91 @@ function renderColorPickers() {
     });
 }
 
-function getColorLabel(target) {
-    if (target === 'ticket' && paperLayouts.has(state.layout)) return '相纸颜色';
-    return labels[target];
+function bindSpecialColorControls(root) {
+    root.querySelectorAll('[data-custom-color]').forEach(btn => {
+        btn.addEventListener('click', () => handleCustomColorClick(btn.dataset.customColor));
+        if (btn.dataset.canHover === 'true') {
+            btn.addEventListener('mouseenter', () => showVariants(btn.dataset.customColor, state.customColors[btn.dataset.customColor]));
+        }
+    });
+
+    root.querySelector('[data-photo-background]')?.addEventListener('click', openPhotoSettings);
+    root.querySelector('[data-photo-upload]')?.addEventListener('click', openUpload);
+    root.querySelector('[data-color-panel-cancel]')?.addEventListener('click', () => {
+        const target = state.activeColorPanel?.target;
+        closeColorPanel();
+        renderColorPickers(target);
+    });
+
+    root.querySelectorAll('[data-custom-input]').forEach(input => {
+        input.addEventListener('input', () => {
+            root.querySelector('[data-custom-output]').textContent = input.value.toUpperCase();
+        });
+    });
+
+    root.querySelectorAll('[data-custom-save]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.customSave;
+            const color = root.querySelector(`[data-custom-input="${target}"]`).value.toUpperCase();
+            state.customColors[target] = color;
+            chooseColor(target, color);
+        });
+    });
+
+    root.querySelectorAll('[data-photo-setting]').forEach(control => {
+        control.addEventListener('input', () => {
+            const key = control.dataset.photoSetting;
+            state.photoSettingsDraft[key] = key === 'type' ? control.value : Number(control.value);
+            root.querySelector(`[data-range-output="${key}"]`)?.replaceChildren(String(control.value));
+        });
+    });
+
+    root.querySelector('[data-photo-settings-save]')?.addEventListener('click', () => {
+        state.backgroundPhotoSettings = { ...state.photoSettingsDraft };
+        state.backgroundMode = 'photo';
+        closeColorPanel();
+        renderColorPickers('bg');
+        renderPreview();
+    });
 }
 
-function colorDot(color, target, canHover = false) {
-    return `<button class="color-dot" type="button" data-color="${color}" data-target="${target}" data-can-hover="${canHover}" style="background:${color}" title="${color}"></button>`;
+function handleCustomColorClick(target) {
+    const color = state.customColors[target];
+    const customIsActive = color && state[target].toUpperCase() === color.toUpperCase() && !(target === 'bg' && state.backgroundMode === 'photo');
+    if (color && !customIsActive) {
+        chooseColor(target, color);
+        return;
+    }
+    closeColorPanel();
+    state.activeColorPanel = { type: 'custom', target };
+    renderColorPickers(target);
+}
+
+function openPhotoSettings() {
+    closeColorPanel();
+    state.photoSettingsDraft = { ...state.backgroundPhotoSettings };
+    state.activeColorPanel = { type: 'photo', target: 'bg' };
+    renderColorPickers('bg');
+}
+
+function closeColorPanel() {
+    state.activeColorPanel = null;
+    state.photoSettingsDraft = null;
+    document.querySelectorAll('.color-submenu').forEach(el => el.remove());
 }
 
 function showVariants(target, color) {
     state.hoverColor = color;
     const row = document.getElementById(`variant-row-${target}`);
     row.innerHTML = makeVariants(color).map(variant => colorDot(variant, target)).join('');
-    row.querySelectorAll('[data-color]').forEach(btn => {
-        btn.addEventListener('click', () => chooseColor(btn.dataset.target, btn.dataset.color));
-    });
+    bindColorDots(row);
 }
 
 function chooseColor(target, color) {
+    closeColorPanel();
+    if (target === 'bg') state.backgroundMode = 'color';
     state[target] = color;
-    document.getElementById(`swatch-${target}`).style.background = color;
+    renderColorPickers(target);
     renderPreview();
 }
 
@@ -212,8 +387,12 @@ function renderCanvas(targetCanvas, w, h) {
     const c = targetCanvas.getContext('2d');
     targetCanvas.width = w;
     targetCanvas.height = h;
-    c.fillStyle = state.bg;
-    c.fillRect(0, 0, w, h);
+    if (state.backgroundMode === 'photo' && state.photo) {
+        drawPhotoBackground(c, w, h);
+    } else {
+        c.fillStyle = state.bg;
+        c.fillRect(0, 0, w, h);
+    }
 
     const { width: ticketW, height: ticketH } = getLayoutSize(w, h, state.layout);
     const x = (w - ticketW) / 2;
@@ -221,12 +400,46 @@ function renderCanvas(targetCanvas, w, h) {
     drawTicket(c, x, y, ticketW, ticketH, state.layout);
 }
 
+function drawPhotoBackground(c, w, h) {
+    const settings = state.backgroundPhotoSettings;
+    const strength = Math.max(0, Math.min(100, settings.strength));
+    const saturation = Math.max(50, Math.min(150, 100 + settings.saturation));
+    const base = Math.min(w, h);
+
+    c.fillStyle = state.bg;
+    c.fillRect(0, 0, w, h);
+    c.save();
+
+    if (settings.type === 'radial') {
+        c.filter = `saturate(${saturation}%) blur(${(strength * 0.06).toFixed(2)}px)`;
+        drawImageCover(c, state.photo, 0, 0, w, h);
+        if (strength > 0) {
+            const steps = 8 + Math.round(strength / 10);
+            const maxZoom = strength / 550;
+            c.globalAlpha = 0.055;
+            for (let index = 1; index <= steps; index += 1) {
+                const scale = 1 + maxZoom * index / steps;
+                const layerW = w * scale;
+                const layerH = h * scale;
+                drawImageCover(c, state.photo, (w - layerW) / 2, (h - layerH) / 2, layerW, layerH);
+            }
+        }
+    } else {
+        const blurPx = base * strength / 1800;
+        const scale = 1 + blurPx * 4 / base;
+        const layerW = w * scale;
+        const layerH = h * scale;
+        c.filter = `saturate(${saturation}%) blur(${blurPx.toFixed(2)}px)`;
+        drawImageCover(c, state.photo, (w - layerW) / 2, (h - layerH) / 2, layerW, layerH);
+    }
+    c.restore();
+}
+
 function getLayoutSize(canvasW, canvasH, layout) {
     const base = Math.min(canvasW, canvasH);
     if (!paperLayouts.has(layout)) {
-        const aspect = layout === 'compact' ? 4 / 3 + compactStubRatio : 2.5;
         const width = Math.min(canvasW * 0.86, base * 1.45);
-        return { width, height: width / aspect };
+        return { width, height: width / 2.5 };
     }
 
     const wideAspect = paperDimensions.wide.outerW / paperDimensions.wide.outerH;
@@ -308,7 +521,10 @@ function drawPhoto(c, x, y, w, h) {
         drawPhotoPlaceholder(c, x, y, w, h);
         return;
     }
-    const img = state.photo;
+    drawImageCover(c, state.photo, x, y, w, h);
+}
+
+function drawImageCover(c, img, x, y, w, h) {
     const imgRatio = img.naturalWidth / img.naturalHeight;
     const boxRatio = w / h;
     let sx = 0;
@@ -348,10 +564,8 @@ function drawClassic(c, x, y, w, h) {
 }
 
 function drawCompact(c, x, y, w, h) {
-    const photoW = h * 4 / 3;
-    const stubPad = h * 0.05;
-    drawPhoto(c, x, y, photoW, h);
-    drawTextBlock(c, x + photoW + stubPad, y + h * 0.11, w - photoW - stubPad * 1.55, h, 0.68);
+    drawPhoto(c, x, y, w * 0.80, h);
+    drawTextBlock(c, x + w * 0.83, y + h * 0.11, w * 0.14, h, 0.70);
 }
 
 function drawPaper(c, x, y, w, h, layout) {
