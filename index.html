@@ -54,7 +54,7 @@
                         <button class="font-trigger" id="fontMenuTrigger" type="button" aria-label="选择字体" aria-expanded="false">
                             <span class="font-trigger-copy">
                                 <strong id="generalFontLabel">System Sans</strong>
-                                <small id="chineseFontLabel">中文：通用</small>
+                                <small id="chineseFontLabel" hidden></small>
                             </span>
                             <i class="bi bi-chevron-down"></i>
                         </button>
@@ -97,8 +97,8 @@
                 <label class="effect-field" for="shadowInput">
                     <span class="effect-field-heading">阴影强度</span>
                     <span class="stepped-range">
-                        <input id="shadowInput" type="range" min="0" max="2" step="1" value="1">
-                        <span class="range-ticks" aria-hidden="true"><i></i><i></i><i></i></span>
+                        <input id="shadowInput" type="range" min="0" max="3" step="1" value="1">
+                        <span class="range-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
                     </span>
                 </label>
                 <label class="effect-field" for="angleInput">

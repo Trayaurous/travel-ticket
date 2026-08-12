@@ -297,7 +297,10 @@ function bindFontPicker() {
 
 function updateFontPicker() {
     document.getElementById('generalFontLabel').textContent = generalFontLabels[state.generalFont];
-    document.getElementById('chineseFontLabel').textContent = `中文：${chineseFontLabels[state.chineseFont]}`;
+    const chineseLabel = document.getElementById('chineseFontLabel');
+    const hasChineseOverride = state.chineseFont !== 'inherit';
+    chineseLabel.hidden = !hasChineseOverride;
+    chineseLabel.textContent = hasChineseOverride ? `中文：${chineseFontLabels[state.chineseFont]}` : '';
     document.getElementById('fontMenuTrigger').style.fontFamily = fontCss[state.generalFont] || fontCss.system;
     document.querySelectorAll('[data-general-font]').forEach(button => {
         const active = button.dataset.generalFont === state.generalFont;
@@ -919,7 +922,8 @@ function drawTicket(c, x, y, w, h, layout) {
     const shadows = [
         { color: 'transparent', blur: 0, offsetY: 0 },
         { color: 'rgba(70,60,45,0.16)', blur: 28, offsetY: 18 },
-        { color: 'rgba(70,60,45,0.30)', blur: 46, offsetY: 28 }
+        { color: 'rgba(70,60,45,0.30)', blur: 46, offsetY: 28 },
+        { color: 'rgba(70,60,45,0.44)', blur: 68, offsetY: 38 }
     ];
     const shadow = shadows[state.shadowStrength] || shadows[1];
     c.save();
