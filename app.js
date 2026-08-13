@@ -66,6 +66,7 @@ const stage = document.getElementById('stage');
 const imageInput = document.getElementById('imageInput');
 let previewRenderVersion = 0;
 let canvasFilterSupport;
+let mobileSamplingState = null;
 
 function init() {
     renderColorPickers();
@@ -94,8 +95,13 @@ function bindControls() {
         renderPreview();
     });
     stage.addEventListener('click', () => {
+        if (state.samplingTarget) return;
         if (!state.photo) openUpload();
     });
+    stage.addEventListener('pointerdown', handleMobileSamplingPointerDown);
+    stage.addEventListener('pointermove', handleMobileSamplingPointerMove);
+    stage.addEventListener('pointerup', handleMobileSamplingPointerUp);
+    stage.addEventListener('pointercancel', handleMobileSamplingPointerUp);
     imageInput.addEventListener('click', event => event.stopPropagation());
     imageInput.addEventListener('change', handleImageUpload);
     document.addEventListener('click', handleColorSamplingClick, true);
@@ -456,6 +462,10 @@ function startColorSampling(target) {
     cancelColorSampling();
     state.samplingTarget = target;
     document.body.classList.add('color-sampling');
+    if (window.matchMedia('(max-width: 900px)').matches) {
+        startMobileColorSampling();
+        return;
+    }
     const hint = document.createElement('div');
     hint.className = 'color-sampling-hint';
     hint.id = 'colorSamplingHint';
@@ -471,14 +481,117 @@ function startColorSampling(target) {
 }
 
 function cancelColorSampling() {
+    if (mobileSamplingState?.frame) cancelAnimationFrame(mobileSamplingState.frame);
     state.samplingTarget = null;
     document.body.classList.remove('color-sampling');
+    document.body.classList.remove('mobile-color-sampling');
     document.getElementById('colorSamplingHint')?.remove();
     document.getElementById('colorSamplingLoupe')?.remove();
+    document.getElementById('mobileColorSampler')?.remove();
+    canvas.style.removeProperty('--sampling-x');
+    canvas.style.removeProperty('--sampling-y');
+    mobileSamplingState = null;
+}
+
+function startMobileColorSampling() {
+    document.body.classList.add('mobile-color-sampling');
+    mobileSamplingState = {
+        zoom: 2.25,
+        x: 0,
+        y: 0,
+        pointerId: null,
+        lastX: 0,
+        lastY: 0,
+        frame: null,
+        color: state.bg
+    };
+
+    const sampler = document.createElement('div');
+    sampler.className = 'mobile-color-sampler';
+    sampler.id = 'mobileColorSampler';
+    sampler.innerHTML = `
+        <div class="mobile-sampling-color" id="mobileSamplingColor" aria-hidden="true"></div>
+        <div class="mobile-sampling-actions">
+            <button type="button" class="mobile-sampling-action cancel" data-mobile-sampling-cancel aria-label="取消取色">
+                <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="mobile-sampling-action confirm" data-mobile-sampling-confirm aria-label="确定取色">
+                <i class="bi bi-check-lg" aria-hidden="true"></i>
+            </button>
+        </div>`;
+    stage.appendChild(sampler);
+
+    sampler.querySelector('[data-mobile-sampling-cancel]').addEventListener('click', event => {
+        event.preventDefault();
+        cancelColorSampling();
+    });
+    sampler.querySelector('[data-mobile-sampling-confirm]').addEventListener('click', event => {
+        event.preventDefault();
+        const target = state.samplingTarget;
+        const color = updateMobileSamplingColor();
+        cancelColorSampling();
+        if (!target || !color) return;
+        state.customColors[target] = color;
+        chooseColor(target, color);
+    });
+
+    requestAnimationFrame(() => updateMobileSamplingColor());
+}
+
+function handleMobileSamplingPointerDown(event) {
+    if (!mobileSamplingState || event.target.closest('.mobile-sampling-action')) return;
+    event.preventDefault();
+    mobileSamplingState.pointerId = event.pointerId;
+    mobileSamplingState.lastX = event.clientX;
+    mobileSamplingState.lastY = event.clientY;
+    stage.setPointerCapture?.(event.pointerId);
+}
+
+function handleMobileSamplingPointerMove(event) {
+    if (!mobileSamplingState || mobileSamplingState.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const deltaX = event.clientX - mobileSamplingState.lastX;
+    const deltaY = event.clientY - mobileSamplingState.lastY;
+    mobileSamplingState.lastX = event.clientX;
+    mobileSamplingState.lastY = event.clientY;
+
+    const maxX = Math.max(0, canvas.offsetWidth * mobileSamplingState.zoom / 2 - 2);
+    const maxY = Math.max(0, canvas.offsetHeight * mobileSamplingState.zoom / 2 - 2);
+    mobileSamplingState.x = Math.max(-maxX, Math.min(maxX, mobileSamplingState.x + deltaX));
+    mobileSamplingState.y = Math.max(-maxY, Math.min(maxY, mobileSamplingState.y + deltaY));
+    canvas.style.setProperty('--sampling-x', `${mobileSamplingState.x}px`);
+    canvas.style.setProperty('--sampling-y', `${mobileSamplingState.y}px`);
+    if (mobileSamplingState.frame) cancelAnimationFrame(mobileSamplingState.frame);
+    mobileSamplingState.frame = requestAnimationFrame(() => {
+        if (!mobileSamplingState) return;
+        mobileSamplingState.frame = null;
+        updateMobileSamplingColor();
+    });
+}
+
+function handleMobileSamplingPointerUp(event) {
+    if (!mobileSamplingState || mobileSamplingState.pointerId !== event.pointerId) return;
+    stage.releasePointerCapture?.(event.pointerId);
+    mobileSamplingState.pointerId = null;
+    updateMobileSamplingColor();
+}
+
+function updateMobileSamplingColor() {
+    if (!mobileSamplingState) return null;
+    const stageRect = stage.getBoundingClientRect();
+    const color = sampleColorAtPoint(stageRect.left + stageRect.width / 2, stageRect.top + stageRect.height / 2);
+    if (!color) return mobileSamplingState.color;
+    mobileSamplingState.color = color;
+    const indicator = document.getElementById('mobileSamplingColor');
+    if (indicator) {
+        indicator.style.background = color;
+        indicator.setAttribute('aria-label', `当前颜色 ${color}`);
+    }
+    return color;
 }
 
 function updateColorSamplingLoupe(event) {
-    if (!state.samplingTarget) return;
+    if (!state.samplingTarget || mobileSamplingState) return;
     const loupe = document.getElementById('colorSamplingLoupe');
     if (!loupe) return;
 
@@ -540,6 +653,7 @@ function updateColorSamplingLoupe(event) {
 
 function handleColorSamplingClick(event) {
     if (!state.samplingTarget) return;
+    if (mobileSamplingState) return;
     const colorButton = event.target.closest('.color-dot');
     if (colorButton) {
         if (colorButton.matches('[data-custom-color]')) state.suppressNextSamplingClick = true;
@@ -1078,15 +1192,35 @@ function drawPaperText(c, x, y, w, h, layout) {
     c.textBaseline = 'top';
 
     c.textAlign = 'left';
-    drawStyledText(c, dateText, x, y + topGap + dateGroupOffset, leftW, dateSize, 800);
-    c.globalAlpha = 0.78;
-    drawStyledText(c, dateCaption, x, y + topGap + dateGroupOffset + dateSize * 1.30, leftW, smallSize, 700, 1.22);
+    const dateY = y + topGap + dateGroupOffset;
+    const dateCaptionY = dateY + dateSize * 1.30;
+    const dateGroupHeight = dateCaptionY + smallSize - dateY;
+    if (dateText.trim() && dateCaption.trim()) {
+        drawStyledText(c, dateText, x, dateY, leftW, dateSize, 800);
+        c.globalAlpha = 0.78;
+        drawStyledText(c, dateCaption, x, dateCaptionY, leftW, smallSize, 700, 1.22);
+    } else if (dateText.trim()) {
+        const singleDateSize = dateSize * 1.16;
+        drawStyledText(c, dateText, x, dateY + (dateGroupHeight - singleDateSize) / 2, leftW, singleDateSize, 800);
+    } else if (dateCaption.trim()) {
+        const singleCaptionSize = smallSize * 1.18;
+        c.globalAlpha = 0.88;
+        drawStyledText(c, dateCaption, x, dateY + (dateGroupHeight - singleCaptionSize) / 2, leftW, singleCaptionSize, 700, 1.22);
+    }
 
     c.globalAlpha = 1;
     c.textAlign = 'right';
-    drawStyledText(c, titleText, x + w, y + topGap, rightW, titleSize, 900);
-    c.globalAlpha = 0.78;
-    drawStyledText(c, titleCaption, x + w, y + topGap + titleSize * 1.28, rightW, smallSize, 700, 1.22);
+    const titleY = y + topGap;
+    const titleCaptionY = titleY + titleSize * 1.28;
+    if (titleCaption.trim()) {
+        drawStyledText(c, titleText, x + w, titleY, rightW, titleSize, 900);
+        c.globalAlpha = 0.78;
+        drawStyledText(c, titleCaption, x + w, titleCaptionY, rightW, smallSize, 700, 1.22);
+    } else {
+        const expandedTitleSize = titleSize * 1.12;
+        const titleGroupHeight = titleCaptionY + smallSize - titleY;
+        drawStyledText(c, titleText, x + w, titleY + (titleGroupHeight - expandedTitleSize) / 2, rightW, expandedTitleSize, 900);
+    }
     c.restore();
 }
 
