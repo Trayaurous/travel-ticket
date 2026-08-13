@@ -19,6 +19,7 @@ const fontCss = {
     xingkai: "'Long Cang', STXingkai, '华文行楷', cursive"
 };
 const regularOnlyFonts = new Set(['poster', 'kaiti', 'xingkai']);
+const fontSizeScales = { poster: 1.10 };
 const generalFontLabels = {
     system: 'System Sans',
     poster: 'Caveat Script',
@@ -788,7 +789,9 @@ function getTextRunMetrics(c, text, fontSize, requestedWeight, chineseScale = 1)
     c.save();
     const metrics = makeTextRuns(text).map(run => {
         const weight = getCanvasFontWeight(run.fontKey, requestedWeight);
-        const runFontSize = run.fontKey === state.chineseFont ? fontSize * chineseScale : fontSize;
+        const fontScale = fontSizeScales[run.fontKey] || 1;
+        const chineseFontScale = run.fontKey === state.chineseFont ? chineseScale : 1;
+        const runFontSize = fontSize * fontScale * chineseFontScale;
         c.font = `${weight} ${runFontSize}px ${fontCss[run.fontKey] || fontCss.system}`;
         return { ...run, weight, fontSize: runFontSize, width: c.measureText(run.text).width };
     });
