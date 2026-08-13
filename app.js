@@ -80,7 +80,10 @@ function bindControls() {
     document.getElementById('colorPickers').addEventListener('click', event => event.stopPropagation());
     document.getElementById('uploadBtn').addEventListener('click', openUpload);
     document.getElementById('resetBtn').addEventListener('click', resetTicket);
-    document.getElementById('exportBtn').addEventListener('click', exportTicket);
+    document.getElementById('exportBtn').addEventListener('click', event => {
+        event.preventDefault();
+        exportTicket().catch(error => console.error('保存图片失败。', error));
+    });
     document.getElementById('shadowInput').addEventListener('input', event => {
         state.shadowStrength = Number(event.target.value);
         renderPreview();
@@ -1151,19 +1154,80 @@ function drawDashedLine(c, x1, y1, x2, y2, alpha = 0.22, width = 2, dash = [8, 8
     c.restore();
 }
 
-async function exportTicket() {
-    await ensureSelectedFontLoaded();
+function isMobileSafari() {
+    const userAgent = navigator.userAgent;
+    const iOSDevice = /iPad|iPhone|iPod/.test(userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return iOSDevice && /WebKit/.test(userAgent) && !/CriOS|FxiOS|EdgiOS/.test(userAgent);
+}
+
+function canvasToPngBlob(sourceCanvas) {
+    return new Promise((resolve, reject) => {
+        sourceCanvas.toBlob(blob => {
+            if (blob) resolve(blob);
+            else reject(new Error('无法生成 PNG 图片。'));
+        }, 'image/png');
+    });
+}
+
+function canvasToPngBlobSync(sourceCanvas) {
+    const dataUrl = sourceCanvas.toDataURL('image/png');
+    const bytes = atob(dataUrl.split(',')[1]);
+    const buffer = new Uint8Array(bytes.length);
+    for (let index = 0; index < bytes.length; index += 1) buffer[index] = bytes.charCodeAt(index);
+    return new Blob([buffer], { type: 'image/png' });
+}
+
+function makeExportCanvas() {
     const [rw, rh] = ratioMap[state.ratio] || [1, 1];
     const base = 1800;
     const outW = rw >= rh ? base : Math.round(base * rw / rh);
     const outH = rw >= rh ? Math.round(base * rh / rw) : base;
     const exportCanvas = document.createElement('canvas');
     renderCanvas(exportCanvas, outW, outH);
-    const link = document.createElement('a');
+    return exportCanvas;
+}
+
+function getExportFileName() {
     const cleanName = state.photoName ? state.photoName.replace(/[^\w-]+/g, '_') : 'travel_ticket';
-    link.download = `${cleanName}_${state.ratio.replace(':', 'x')}.png`;
-    link.href = exportCanvas.toDataURL('image/png');
+    return `${cleanName}_${state.ratio.replace(':', 'x')}.png`;
+}
+
+async function exportTicket() {
+    if (isMobileSafari()) {
+        const exportCanvas = makeExportCanvas();
+        const fileName = getExportFileName();
+        const blob = canvasToPngBlobSync(exportCanvas);
+        const file = new File([blob], fileName, { type: 'image/png' });
+
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+            try {
+                await navigator.share({ files: [file], title: fileName });
+                return;
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+            }
+        }
+
+        const imageUrl = URL.createObjectURL(blob);
+        window.open(imageUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(imageUrl), 60000);
+        return;
+    }
+
+    await ensureSelectedFontLoaded();
+    const exportCanvas = makeExportCanvas();
+    const fileName = getExportFileName();
+    const blob = await canvasToPngBlob(exportCanvas);
+    const imageUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = imageUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
     link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
 }
 
 function extractPalette(img, count = 5) {
