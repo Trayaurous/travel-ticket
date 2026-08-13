@@ -12,16 +12,16 @@ const paperDimensions = {
 };
 const fontCss = {
     system: "'Noto Sans SC Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    poster: "'Bebas Neue', 'Noto Sans SC Variable', 'Arial Black', sans-serif",
+    poster: "'Caveat Variable', 'Noto Sans SC Variable', cursive",
     mono: "'JetBrains Mono Variable', 'Noto Sans SC Variable', monospace",
     serif: "'Noto Serif SC Variable', Georgia, serif",
     kaiti: "'Ma Shan Zheng', KaiTi, STKaiti, 'Kaiti SC', cursive",
     xingkai: "'Long Cang', STXingkai, '华文行楷', cursive"
 };
-const regularOnlyFonts = new Set(['kaiti', 'xingkai']);
+const regularOnlyFonts = new Set(['poster', 'kaiti', 'xingkai']);
 const generalFontLabels = {
     system: 'System Sans',
-    poster: 'Bold Poster',
+    poster: 'Caveat Script',
     mono: 'Ticket Mono',
     serif: 'Editorial Serif'
 };

@@ -1,5 +1,5 @@
 @import url("./fonts/noto-sans-sc/font.css");
-@import url("./fonts/bebas-neue/font.css");
+@import url("./fonts/caveat/font.css");
 @import url("./fonts/jetbrains-mono/font.css");
 @import url("./fonts/noto-serif-sc/font.css");
 @import url("./fonts/ma-shan-zheng/font.css");
@@ -363,7 +363,7 @@ textarea:focus {
 }
 
 [data-general-font="poster"] {
-    font-family: "Bebas Neue", sans-serif;
+    font-family: "Caveat Variable", cursive;
 }
 
 [data-general-font="mono"] {

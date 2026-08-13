@@ -5,7 +5,7 @@
 | 界面选项 | Web 字体 | 版本 | 授权 |
 | --- | --- | --- | --- |
 | System Sans | Noto Sans SC Variable | 5.3.0 | SIL Open Font License 1.1 |
-| Bold Poster | Bebas Neue | 5.3.0 | SIL Open Font License 1.1 |
+| Caveat Script | Caveat Variable | 5.3.0 | SIL Open Font License 1.1 |
 | Ticket Mono | JetBrains Mono Variable | 5.3.0 | SIL Open Font License 1.1 |
 | Editorial Serif | Noto Serif SC Variable | 5.3.0 | SIL Open Font License 1.1 |
 | 马善政体 | Ma Shan Zheng | 5.3.0 | SIL Open Font License 1.1 |
