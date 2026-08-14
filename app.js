@@ -1177,7 +1177,7 @@ function drawPaper(c, x, y, w, h, layout) {
 }
 
 function drawPaperText(c, x, y, w, h, layout) {
-    const titleText = document.getElementById('titleInput').value.replace(/\s+/g, ' ').trim() || 'TRIP';
+    const titleText = document.getElementById('titleInput').value.replace(/\s+/g, ' ').trim();
     const dateText = document.getElementById('dateInput').value || '';
     const titleCaption = document.getElementById('line1Input').value || '';
     const dateCaption = document.getElementById('line2Input').value || '';
@@ -1216,10 +1216,10 @@ function drawPaperText(c, x, y, w, h, layout) {
     const titleY = y + topGap;
     const titleCaptionY = titleY + titleSize * 1.28;
     if (titleCaption.trim()) {
-        drawStyledText(c, titleText, x + w, titleY, rightW, titleSize, 900);
+        if (titleText) drawStyledText(c, titleText, x + w, titleY, rightW, titleSize, 900);
         c.globalAlpha = 0.78;
         drawStyledText(c, titleCaption, x + w, titleCaptionY, rightW, smallSize, 700, 1.22);
-    } else {
+    } else if (titleText) {
         const expandedTitleSize = titleSize * 1.12;
         const titleGroupHeight = titleCaptionY + smallSize - titleY;
         drawStyledText(c, titleText, x + w, titleY + (titleGroupHeight - expandedTitleSize) / 2, rightW, expandedTitleSize, 900);
